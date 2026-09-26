@@ -1,63 +1,87 @@
-import os
+# ============================================================
+# CREDIT CARD FRAUD DETECTION
+# MODEL EVALUATION
+# ============================================================
 
+import os
 import joblib
 import pandas as pd
-import numpy as np
-
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from sklearn.model_selection import train_test_split
+
 from sklearn.metrics import (
-    confusion_matrix,
-    classification_report,
+    accuracy_score,
     precision_score,
     recall_score,
     f1_score,
+    roc_auc_score,
+    average_precision_score,
+    confusion_matrix,
+    classification_report,
     precision_recall_curve
 )
 
 
 # ============================================================
-# 1. CONFIGURATION
+# STEP 1: CONFIGURATION
 # ============================================================
 
 DATA_PATH = "data/creditcard.csv"
 
 MODEL_PATH = "models/fraud_detection_model.pkl"
 
-RESULTS_PATH = "results"
+RESULTS_DIR = "results"
 
 RANDOM_STATE = 42
 
+TEST_SIZE = 0.20
+
+
+# ============================================================
+# STEP 2: CREATE RESULTS DIRECTORY
+# ============================================================
 
 os.makedirs(
-    RESULTS_PATH,
+    RESULTS_DIR,
     exist_ok=True
 )
 
 
 # ============================================================
-# 2. LOAD DATA
+# STEP 3: LOAD DATASET
 # ============================================================
 
-print("=" * 70)
-print("MODEL EVALUATION")
-print("=" * 70)
+print("\n")
+print("=" * 80)
+print("STEP 1 - LOADING DATASET")
+print("=" * 80)
 
-print("\nLoading dataset...")
+df = pd.read_csv(DATA_PATH)
 
-df = pd.read_csv(
-    DATA_PATH
-)
+print("\nOriginal dataset shape:")
+print(df.shape)
 
 
-# Remove duplicates exactly as during training
+# ============================================================
+# STEP 4: REMOVE DUPLICATES
+# ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 2 - REMOVING DUPLICATES")
+print("=" * 80)
+
 df = df.drop_duplicates()
 
+df = df.reset_index(drop=True)
+
+print("\nDataset shape after duplicate removal:")
+print(df.shape)
+
 
 # ============================================================
-# 3. SEPARATE FEATURES AND TARGET
+# STEP 5: FEATURES AND TARGET
 # ============================================================
 
 X = df.drop(
@@ -69,203 +93,286 @@ y = df["Class"]
 
 
 # ============================================================
-# 4. SAME TEST SPLIT
+# STEP 6: SAME TRAIN-TEST SPLIT
 # ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 3 - CREATING TEST DATA")
+print("=" * 80)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
-    test_size=0.20,
+    test_size=TEST_SIZE,
     random_state=RANDOM_STATE,
     stratify=y
 )
 
+print("\nTraining samples:")
+print(X_train.shape[0])
+
+print("\nTesting samples:")
+print(X_test.shape[0])
+
 
 # ============================================================
-# 5. LOAD TRAINED MODEL
+# STEP 7: LOAD SAVED MODEL
 # ============================================================
 
-print("\nLoading trained model...")
+print("\n")
+print("=" * 80)
+print("STEP 4 - LOADING SAVED MODEL")
+print("=" * 80)
 
 model = joblib.load(
     MODEL_PATH
 )
 
-print("Model loaded successfully.")
+print("\nModel loaded successfully.")
+
+print("Model:")
+print(model)
 
 
 # ============================================================
-# 6. GENERATE PREDICTIONS
+# STEP 8: GENERATE PREDICTIONS
 # ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 5 - GENERATING PREDICTIONS")
+print("=" * 80)
 
 y_probability = model.predict_proba(
     X_test
 )[:, 1]
 
 
-# Default threshold = 0.50
+# Default threshold
+
+DEFAULT_THRESHOLD = 0.50
+
 
 y_pred = (
-    y_probability >= 0.50
+    y_probability >= DEFAULT_THRESHOLD
 ).astype(int)
 
 
 # ============================================================
-# 7. CONFUSION MATRIX
+# STEP 9: CALCULATE FINAL METRICS
 # ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 6 - MODEL PERFORMANCE")
+print("=" * 80)
+
+accuracy = accuracy_score(
+    y_test,
+    y_pred
+)
+
+precision = precision_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+recall = recall_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+f1 = f1_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+roc_auc = roc_auc_score(
+    y_test,
+    y_probability
+)
+
+pr_auc = average_precision_score(
+    y_test,
+    y_probability
+)
+
+
+print("\nAccuracy  :", round(accuracy, 4))
+
+print("Precision :", round(precision, 4))
+
+print("Recall    :", round(recall, 4))
+
+print("F1 Score  :", round(f1, 4))
+
+print("ROC-AUC   :", round(roc_auc, 4))
+
+print("PR-AUC    :", round(pr_auc, 4))
+
+
+# ============================================================
+# STEP 10: CONFUSION MATRIX
+# ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 7 - CONFUSION MATRIX")
+print("=" * 80)
 
 cm = confusion_matrix(
     y_test,
     y_pred
 )
 
+print("\nConfusion Matrix:")
 
-tn, fp, fn, tp = cm.ravel()
-
-
-print("\n" + "=" * 70)
-print("CONFUSION MATRIX")
-print("=" * 70)
-
-print("\nTrue Negatives :", tn)
-print("False Positives:", fp)
-print("False Negatives:", fn)
-print("True Positives :", tp)
-
-
-print("\nConfusion matrix:")
 print(cm)
 
 
-# ============================================================
-# 8. CONFUSION MATRIX VISUALIZATION
-# ============================================================
-
-plt.figure(
-    figsize=(7, 6)
-)
-
-sns.heatmap(
-    cm,
-    annot=True,
-    fmt="d",
-    cmap="Blues",
-    xticklabels=[
-        "Legitimate",
-        "Fraud"
-    ],
-    yticklabels=[
-        "Legitimate",
-        "Fraud"
-    ]
-)
-
-plt.title(
-    "Fraud Detection Confusion Matrix"
-)
-
-plt.xlabel(
-    "Predicted"
-)
-
-plt.ylabel(
-    "Actual"
-)
-
-plt.tight_layout()
-
-plt.savefig(
-    f"{RESULTS_PATH}/confusion_matrix.png",
-    dpi=300
-)
-
-plt.close()
-
-
-# ============================================================
-# 9. CLASSIFICATION REPORT
-# ============================================================
-
-print("\n" + "=" * 70)
-print("CLASSIFICATION REPORT")
-print("=" * 70)
+print("\nClassification Report:")
 
 print(
     classification_report(
         y_test,
         y_pred,
-        target_names=[
-            "Legitimate",
-            "Fraud"
-        ],
         zero_division=0
     )
 )
 
 
 # ============================================================
-# 10. FEATURE IMPORTANCE
+# STEP 11: SAVE CONFUSION MATRIX IMAGE
 # ============================================================
 
-print("\n" + "=" * 70)
-print("FEATURE IMPORTANCE")
-print("=" * 70)
+plt.figure(
+    figsize=(6, 5)
+)
+
+plt.imshow(
+    cm,
+    interpolation="nearest"
+)
+
+plt.title(
+    "Confusion Matrix - Random Forest"
+)
+
+plt.colorbar()
+
+plt.xlabel(
+    "Predicted Label"
+)
+
+plt.ylabel(
+    "Actual Label"
+)
+
+plt.xticks(
+    [0, 1],
+    ["Legitimate", "Fraud"]
+)
+
+plt.yticks(
+    [0, 1],
+    ["Legitimate", "Fraud"]
+)
+
+for i in range(2):
+
+    for j in range(2):
+
+        plt.text(
+            j,
+            i,
+            cm[i, j],
+            ha="center",
+            va="center"
+        )
 
 
-rf_model = model.named_steps[
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(
+        RESULTS_DIR,
+        "confusion_matrix.png"
+    ),
+    dpi=300
+)
+
+plt.close()
+
+
+print(
+    "\nConfusion matrix saved."
+)
+
+
+# ============================================================
+# STEP 12: FEATURE IMPORTANCE
+# ============================================================
+
+print("\n")
+print("=" * 80)
+print("STEP 8 - FEATURE IMPORTANCE")
+print("=" * 80)
+
+
+# The saved model is an imblearn Pipeline.
+# The Random Forest classifier is inside:
+#
+# model.named_steps["classifier"]
+#
+
+classifier = model.named_steps[
     "classifier"
 ]
 
 
-feature_importance = (
-    rf_model.feature_importances_
+feature_importance = pd.DataFrame({
+
+    "Feature":
+        X.columns,
+
+    "Importance":
+        classifier.feature_importances_
+
+})
+
+
+feature_importance = feature_importance.sort_values(
+    by="Importance",
+    ascending=False
 )
 
 
-importance_df = pd.DataFrame(
-    {
-        "Feature": X.columns,
-        "Importance": feature_importance
-    }
-)
-
-
-importance_df = (
-    importance_df
-    .sort_values(
-        by="Importance",
-        ascending=False
-    )
-)
-
-
-print("\nTop 15 features:")
+print("\nTop 15 important features:")
 
 print(
-    importance_df.head(15)
-)
-
-
-# ============================================================
-# 11. FEATURE IMPORTANCE GRAPH
-# ============================================================
-
-top_features = (
-    importance_df
-    .head(15)
-    .sort_values(
-        by="Importance"
+    feature_importance.head(15).to_string(
+        index=False
     )
 )
 
+
+# ============================================================
+# STEP 13: SAVE FEATURE IMPORTANCE
+# ============================================================
 
 plt.figure(
     figsize=(10, 7)
 )
 
+top_features = feature_importance.head(15)
+
 plt.barh(
-    top_features["Feature"],
-    top_features["Importance"]
+    top_features["Feature"][::-1],
+    top_features["Importance"][::-1]
 )
 
 plt.xlabel(
@@ -277,29 +384,41 @@ plt.ylabel(
 )
 
 plt.title(
-    "Top 15 Random Forest Features"
+    "Top 15 Feature Importances - Random Forest"
 )
 
 plt.tight_layout()
 
 plt.savefig(
-    f"{RESULTS_PATH}/feature_importance.png",
+    os.path.join(
+        RESULTS_DIR,
+        "feature_importance.png"
+    ),
     dpi=300
 )
 
 plt.close()
 
 
+print(
+    "\nFeature importance chart saved."
+)
+
+
 # ============================================================
-# 12. THRESHOLD ANALYSIS
+# STEP 14: THRESHOLD ANALYSIS
 # ============================================================
 
-print("\n" + "=" * 70)
-print("THRESHOLD ANALYSIS")
-print("=" * 70)
+print("\n")
+print("=" * 80)
+print("STEP 9 - THRESHOLD ANALYSIS")
+print("=" * 80)
 
 
-thresholds = [
+threshold_results = []
+
+
+for threshold in [
     0.10,
     0.20,
     0.30,
@@ -309,77 +428,131 @@ thresholds = [
     0.70,
     0.80,
     0.90
-]
+]:
 
-
-results = []
-
-
-for threshold in thresholds:
-
-    predictions = (
+    threshold_predictions = (
         y_probability >= threshold
     ).astype(int)
 
 
-    precision = precision_score(
+    threshold_precision = precision_score(
         y_test,
-        predictions,
+        threshold_predictions,
         zero_division=0
     )
 
 
-    recall = recall_score(
+    threshold_recall = recall_score(
         y_test,
-        predictions,
+        threshold_predictions,
         zero_division=0
     )
 
 
-    f1 = f1_score(
+    threshold_f1 = f1_score(
         y_test,
-        predictions,
+        threshold_predictions,
         zero_division=0
     )
 
 
-    results.append(
-        {
-            "Threshold": threshold,
-            "Precision": precision,
-            "Recall": recall,
-            "F1": f1
-        }
-    )
+    threshold_results.append({
+
+        "Threshold":
+            threshold,
+
+        "Precision":
+            threshold_precision,
+
+        "Recall":
+            threshold_recall,
+
+        "F1 Score":
+            threshold_f1
+
+    })
 
 
 threshold_df = pd.DataFrame(
-    results
+    threshold_results
 )
 
 
+print("\nThreshold analysis:")
+
 print(
     threshold_df.to_string(
-        index=False
+        index=False,
+        float_format=lambda x: f"{x:.4f}"
     )
 )
 
 
 # ============================================================
-# 13. SAVE THRESHOLD RESULTS
+# STEP 15: FIND HIGHEST F1 THRESHOLD
+# ============================================================
+
+best_threshold_row = threshold_df.loc[
+    threshold_df["F1 Score"].idxmax()
+]
+
+
+best_threshold = best_threshold_row[
+    "Threshold"
+]
+
+
+best_threshold_f1 = best_threshold_row[
+    "F1 Score"
+]
+
+
+print("\n")
+print("Highest F1 among tested thresholds:")
+
+print(
+    "Threshold:",
+    best_threshold
+)
+
+print(
+    "F1 Score:",
+    round(
+        best_threshold_f1,
+        4
+    )
+)
+
+
+# ============================================================
+# STEP 16: SAVE THRESHOLD ANALYSIS
 # ============================================================
 
 threshold_df.to_csv(
-    f"{RESULTS_PATH}/threshold_analysis.csv",
+    os.path.join(
+        RESULTS_DIR,
+        "threshold_analysis.csv"
+    ),
     index=False
 )
 
 
+print(
+    "\nThreshold analysis saved."
+)
+
+
 # ============================================================
-# 14. PRECISION-RECALL CURVE
+# STEP 17: PRECISION-RECALL CURVE
 # ============================================================
 
-precision_values, recall_values, pr_thresholds = (
+print("\n")
+print("=" * 80)
+print("STEP 10 - PRECISION RECALL CURVE")
+print("=" * 80)
+
+
+precision_values, recall_values, thresholds = (
     precision_recall_curve(
         y_test,
         y_probability
@@ -405,28 +578,82 @@ plt.ylabel(
 )
 
 plt.title(
-    "Precision-Recall Curve"
+    "Precision-Recall Curve - Random Forest"
 )
 
-plt.grid()
+plt.grid(
+    True
+)
 
 plt.tight_layout()
 
 plt.savefig(
-    f"{RESULTS_PATH}/precision_recall_curve.png",
+    os.path.join(
+        RESULTS_DIR,
+        "precision_recall_curve.png"
+    ),
     dpi=300
 )
 
 plt.close()
 
 
+print(
+    "\nPrecision-Recall curve saved."
+)
+
+
 # ============================================================
-# 15. COMPLETION
+# STEP 18: FINAL SUMMARY
 # ============================================================
 
-print("\n" + "=" * 70)
+print("\n")
+print("=" * 80)
 print("EVALUATION COMPLETED")
-print("=" * 70)
+print("=" * 80)
+
+
+print("\nFinal model:")
+print("Random Forest")
+
+
+print("\nDefault threshold:")
+print(DEFAULT_THRESHOLD)
+
+
+print("\nAccuracy:")
+print(round(accuracy, 4))
+
+
+print("\nPrecision:")
+print(round(precision, 4))
+
+
+print("\nRecall:")
+print(round(recall, 4))
+
+
+print("\nF1 Score:")
+print(round(f1, 4))
+
+
+print("\nROC-AUC:")
+print(round(roc_auc, 4))
+
+
+print("\nPR-AUC:")
+print(round(pr_auc, 4))
+
+
+print("\nHighest tested threshold by F1:")
+print(best_threshold)
+
 
 print("\nResults saved in:")
-print("results/")
+print(RESULTS_DIR)
+
+
+print("\n")
+print("=" * 80)
+print("DONE")
+print("=" * 80)

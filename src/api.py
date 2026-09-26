@@ -1,22 +1,23 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from src.predict import predict_transaction
 
 
-# ==========================================
-# CREATE FASTAPI APPLICATION
-# ==========================================
+# ============================================================
+# FASTAPI APPLICATION
+# ============================================================
 
 app = FastAPI(
     title="Credit Card Fraud Detection API",
-    description="API for detecting fraudulent credit card transactions",
+    description="Machine Learning API for detecting fraudulent credit card transactions",
     version="1.0.0"
 )
 
 
-# ==========================================
-# REQUEST MODEL
-# ==========================================
+# ============================================================
+# TRANSACTION INPUT MODEL
+# ============================================================
 
 class Transaction(BaseModel):
 
@@ -32,6 +33,7 @@ class Transaction(BaseModel):
     V8: float
     V9: float
     V10: float
+
     V11: float
     V12: float
     V13: float
@@ -42,6 +44,7 @@ class Transaction(BaseModel):
     V18: float
     V19: float
     V20: float
+
     V21: float
     V22: float
     V23: float
@@ -54,21 +57,23 @@ class Transaction(BaseModel):
     Amount: float
 
 
-# ==========================================
-# ROOT ENDPOINT
-# ==========================================
+# ============================================================
+# HOME ENDPOINT
+# ============================================================
 
 @app.get("/")
 def home():
 
     return {
-        "message": "Credit Card Fraud Detection API is running"
+        "message": "Credit Card Fraud Detection API is running",
+        "model": "Random Forest",
+        "threshold": 0.70
     }
 
 
-# ==========================================
+# ============================================================
 # PREDICTION ENDPOINT
-# ==========================================
+# ============================================================
 
 @app.post("/predict")
 def predict(transaction: Transaction):
@@ -78,8 +83,7 @@ def predict(transaction: Transaction):
         transaction_data = transaction.model_dump()
 
         result = predict_transaction(
-            transaction_data,
-            threshold=0.5
+            transaction_data
         )
 
         return result
